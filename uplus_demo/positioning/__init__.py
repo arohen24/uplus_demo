@@ -487,7 +487,7 @@ class PositioningThread(Thread):
         # record input data
         # header = "timestamp,strideLength,heading,latitude,longitude,landmark,pressure,ax,ay,az,gx,gy,gz,mx,my,mz," \
         #          "Roll,Pitch".split(',')
-        header = "timestamp,pressure,ax,ay,az,gx,gy,gz".split(',')
+        header = "timestamp,heading,pressure,ax,ay,az,gx,gy,gz".split(',')
 
         with open(f'uplus_demo_data - {int(last_time)}.csv', 'w') as f:
             for elem in self.db['data'].find():
@@ -521,20 +521,12 @@ class IndoorPositioningEngine:
         IndoorPositioningEngine._thread.current_floor = floor_level
         IndoorPositioningEngine._thread.start_lonlat_coord = last_coord
 
-    def start(self, init_params):
-        bldg_id = init_params['bldg_id']
-        floor_level = init_params['floor_level']
-        last_coord = init_params['last_coord']
-
-        if IndoorPositioningEngine._thread.started:
-            IndoorPositioningEngine._thread.terminate()
-            time.sleep(1)
-
-        IndoorPositioningEngine._thread.started = True
-        self.set_init_params(bldg_id, floor_level, last_coord)
-        IndoorPositioningEngine._thread.start()
-
-        return True
+    def start(self):
+        if not IndoorPositioningEngine._thread.started:
+            IndoorPositioningEngine._thread.started = True
+            IndoorPositioningEngine._thread.start()
+            return True
+        return False
 
     def stop(self):
         if IndoorPositioningEngine._thread.started:

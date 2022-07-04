@@ -39,7 +39,7 @@ def upload(request):
 
     # header = "timestamp, strideLength, heading, latitude, longitude, landmark, pressure, ax, ay, az, gx, gy, gz, mx, " \
     #          "my, mz, Roll, Pitch".split(', ')
-    header = "timestamp,pressure,ax,ay,az,gx,gy,gz".split(',')
+    header = "timestamp,heading,pressure,ax,ay,az,gx,gy,gz".split(',')
 
     # with open('data-device.txt') as f:
     #     lines = f.readlines()
@@ -80,10 +80,15 @@ def start(request):
         print(decode_result)
         received_json = json.loads(decode_result)
 
-        IndoorPositioningEngine().start(init_params=received_json['init_params'])
-        return JsonResponse(dict(), status=201)
+        if 'init_params' in received_json:
+            init_params = received_json['init_params']
+            bldg_id = ObjectId(init_params['bldg_id'])
+            floor_level = init_params['floor_level']
+            last_coord = init_params['last_coord']
+            IndoorPositioningEngine().set_init_params(bldg_id, floor_level, last_coord)
 
-    return JsonResponse(dict())
+    IndoorPositioningEngine().start()
+    return JsonResponse(dict(), status=201)
 
 
 @csrf_exempt
