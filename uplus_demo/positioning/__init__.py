@@ -16,6 +16,7 @@ from pyproj import Proj
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from uplus_demo.misc import log
 from uplus_demo.positioning.ParticleFilterManager import ParticleFilterManager
 from uplus_demo.positioning.PressureMonitor import PressureMonitor
 
@@ -40,6 +41,7 @@ def send_coord(lonlat_coord, bldg_id="", floor_id="", uuid=2):
     cookies = {'session_id': 'server'}
     r = requests.post("http://143.248.56.76:18888/API/pdrlocation",
                       headers=headers, data=json.dumps(data), cookies=cookies)
+    log(f"send_coord {lonlat_coord}, {uuid}, {r.status_code}")
     return r.status_code, r.reason, r.text
 
 

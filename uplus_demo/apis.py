@@ -1,18 +1,20 @@
 import sys
 import json
 import time
-import datetime
 import traceback
 
 from bson import ObjectId
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from pymongo import MongoClient
+
 from uplus_demo.positioning import IndoorPositioningEngine
+from uplus_demo.misc import log
 
 
 @csrf_exempt
 def upload(request):
+    log(f"{request.method} /upload/")
     if request.method != 'POST':
         return JsonResponse({'msg': 'POST only'}, status=404)
 
@@ -24,13 +26,11 @@ def upload(request):
     try:
         received_json = json.loads(decode_result)
     except Exception as e:
-        with open('log.txt', 'a') as f:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            err_msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        err_msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
 
-            time_str = datetime.datetime.fromtimestamp(int(time.time())).strftime('[%d/%b/%Y %H:%M:%S]')
-            print(f"{time_str} {''.join(err_msg)}", file=f)
-            print(f"{time_str} {''.join(err_msg)}")
+        log(''.join(err_msg), console_also=True)
+
         decode_result_split = decode_result.split('\\r\\n')
         if len(decode_result_split) > 1:
             received_json = json.loads('\\r\\n'.join(decode_result_split[:-1]) + '"}')
@@ -75,6 +75,7 @@ def upload(request):
 
 @csrf_exempt
 def start(request):
+    log(f"{request.method} /start/")
     if request.method == 'POST':
         decode_result = request.body.decode('utf-8')
         print(decode_result)
@@ -93,5 +94,6 @@ def start(request):
 
 @csrf_exempt
 def stop(request):
+    log(f"{request.method} /stop/")
     IndoorPositioningEngine().stop()
     return JsonResponse(dict(), status=201)
