@@ -20,6 +20,7 @@ class ParticleFilterManager:
         # self.particles += np.random.normal(0, 0.5, size=self.particles.shape)
         self.particles += np.random.normal(0, 0.25, size=self.particles.shape)
         self.N = self.particles.shape[0]
+        self.iii_prev = np.array(self.particles / self.res, dtype=np.int64)
         print('# of particles:', self.N)
 
         self.history_x = np.array(self.particles[:, 0], copy=True)
@@ -43,11 +44,25 @@ class ParticleFilterManager:
         self.yaws_to_show = np.empty(0)
         self.step_lengths_to_show = np.empty(0)
 
+    def _coords_to_check(self, c0, c1, k=8 + 1):
+        try:
+            return self._valid_check_dict[(*c0, *c1)]
+        except KeyError:
+            res = {(int(x), int(y)) for x, y in zip(np.linspace(c0[0], c1[0], k), np.linspace(c0[1], c1[1], k))}
+            self._valid_check_dict[(*c0, *c1)] = res
+            return res
+
     def _is_valid(self, i, j):
         try:
             return self.occ_map[j, i]
         except IndexError:
             return False
+
+    def _is_valid_on(self, c0, c1):
+        for _ in self._coords_to_check(c0, c1):
+            if not self._is_valid(*_):
+                return False
+        return True
 
     def update(self, T, A, G):
         if self.occ_map is None:
@@ -67,6 +82,7 @@ class ParticleFilterManager:
         for yaw, step_length in zip(yaws, step_lengths):
             sls = step_length * self.step_length_noise
             self.heading += self.drift
+
             self.particles[:, 0] += sls * np.cos(self.heading + yaw)
             self.particles[:, 1] += sls * np.sin(self.heading + yaw)
 
@@ -74,9 +90,12 @@ class ParticleFilterManager:
             self.history_y = np.c_[self.history_y, self.particles[:, 1]]
 
             iii = np.array(self.particles / self.res, dtype=np.int64)
-            is_inside = [self._is_valid(*_) for _ in iii]
+            is_survivor = list()
+            self._valid_check_dict = dict()
+            for cur, prev in zip(iii, self.iii_prev):
+                is_survivor.append(self._is_valid_on(cur, prev))
 
-            if np.sum(is_inside) == 0:
+            if np.sum(is_survivor) == 0:
                 center = np.mean(self.particles, axis=0)
                 dists = np.linalg.norm(self.particles - center, axis=1)
                 mean_dist = np.mean(dists)
@@ -117,16 +136,17 @@ class ParticleFilterManager:
                     mean_dist = None
                     # return None
             else:
-                self.probs = is_inside / np.sum(is_inside)
+                self.probs = is_survivor / np.sum(is_survivor)
                 esti = np.average(self.particles, weights=self.probs, axis=0)
                 estimations.append(esti)
 
-                in_indices = np.where(is_inside)[0]
+                in_indices = np.where(is_survivor)[0]
                 center = np.mean(self.particles[in_indices], axis=0)
                 dists = np.linalg.norm(self.particles[in_indices] - center, axis=1)
                 mean_dist = np.mean(dists)
 
             self.records.append(np.c_[self.particles, self.probs])
+            self.iii_prev[:, :] = iii
 
             # resampling
             new_indices = np.random.choice(self.particles.shape[0], self.N, p=self.probs)
@@ -137,7 +157,7 @@ class ParticleFilterManager:
             std_particle_coord = 0.01
             std_step_length_noise = 0.05
             heading_noise_lim = 0.13
-            in_ratio = np.sum(is_inside) / self.N
+            in_ratio = np.sum(is_survivor) / self.N
             if in_ratio < 1e-8:
                 mul = 1 + (1 - in_ratio) * (5 - 1)
                 std_particle_coord *= mul
